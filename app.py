@@ -46,16 +46,26 @@ def home():
         sources, domains = get_sources_and_domains()
         related_news = fetch_news_with_retry(keyword, sources, domains)
 
-        if not related_news or not related_news.get('articles'):
-            return render_template("home.html", all_articles=[], keyword=keyword, error="No news found.")
+        if not related_news or related_news.get('status') != 'ok' or not related_news.get('articles'):
+            error_msg = related_news.get('message') if related_news else "No news found or API error."
+            return render_template("home.html", articles=[], keyword=keyword, error=error_msg)
 
         articles = related_news.get('articles', [])[:100]
-        return render_template("home.html", all_articles=articles, keyword=keyword)
+        return render_template("home.html", articles=articles, keyword=keyword, error=None)
 
     else:
-        top_headlines = newsapi.get_top_headlines(country='in')
-        articles = top_headlines.get('articles', [])[:100]
-        return render_template("home.html", all_headlines=articles)
+        try:
+            top_headlines = newsapi.get_top_headlines(country='in')
+            if top_headlines.get('status') != 'ok':
+                raise Exception(top_headlines.get('message', 'Unknown error'))
+            articles = top_headlines.get('articles', [])[:100]
+        except Exception as e:
+            print(f"Error fetching top headlines: {e}")
+            articles = []
+            error = f"Error fetching top headlines: {e}"
+            return render_template("home.html", articles=articles, error=error)
+
+        return render_template("home.html", articles=articles, error=None)
 
 if __name__ == "__main__":
     app.run(debug=True)
